@@ -307,6 +307,17 @@ async function saveHoliday(env, classCode, date, note = "") {
   return true;
 }
 
+async function getPjokSchedule(env, classCode) {
+  const result = await env.DB.prepare(
+    `SELECT day_of_week AS dayOfWeek
+     FROM pjok_schedule
+     WHERE class_code = ?
+     ORDER BY day_of_week`
+  ).bind(classCode).all();
+
+  return result.results || [];
+}
+
 async function getHolidayList(env, month, year) {
   const startDate = isoDate(year, month, 1);
   const endDate = isoDate(year, month, daysInMonth(year, month));
@@ -328,6 +339,29 @@ async function deleteHoliday(env, date) {
 
   return result.meta?.changes || 0;
 }
+
+async function savePjokSchedule(env, classCode, days) {
+
+  await env.DB.prepare(
+    "DELETE FROM pjok_schedule WHERE class_code = ?"
+  ).bind(classCode).run();
+
+  if (!Array.isArray(days) || days.length === 0) {
+    return true;
+  }
+
+  const statements = days.map(day =>
+    env.DB.prepare(
+      `INSERT INTO pjok_schedule(class_code, day_of_week)
+       VALUES(?, ?)`
+    ).bind(classCode, Number(day))
+  );
+
+  await env.DB.batch(statements);
+
+  return true;
+}
+
 
 async function getMonthlyReport(env, classCode, month, year) {
   const classRow = await getClassByCode(env, classCode);
@@ -456,6 +490,19 @@ export async function onRequest(context) {
         return json({ ok: true, records: await getAttendance(env, classCode, date) });
       }
 
+      if (action === "pjokSchedule") {
+          const classCode = normalizeClassCode(url.searchParams.get("classCode"));
+        
+          if (!isValidClassCode(classCode)) {
+            return badRequest("Kode kelas tidak valid.");
+          }
+        
+          return json({
+            ok: true,
+            schedule: await getPjokSchedule(env, classCode)
+          });
+        }
+
       if (action === "monthlyReport") {
         const classCode = normalizeClassCode(url.searchParams.get("classCode"));
         const month = normalizeMonth(url.searchParams.get("month"));
@@ -521,35 +568,52 @@ export async function onRequest(context) {
       
         return json({ ok: true });
       }
+
+      if (actionPost === "savePjokSchedule") {
+
+        const classCode = normalizeClassCode(payload.classCode);
+      
+        if (!isValidClassCode(classCode)) {
+          return badRequest("Kode kelas tidak valid.");
+        }
+      
+        await savePjokSchedule(
+          env,
+          classCode,
+          payload.days || []
+        );
+      
+        return json({ ok: true });
+      }
       
       if (actionPost === "changePin") {
-  const classCode = normalizeClassCode(payload.classCode);
-
-  if (!isValidClassCode(classCode)) {
-    return badRequest("Kode kelas tidak valid.");
-  }
-
-  const row = await env.DB.prepare(
-    "SELECT pin FROM classes WHERE code = ?"
-  ).bind(classCode).first();
-
-  if (!row) {
-    return badRequest("Kelas tidak ditemukan.");
-  }
-
-  if (String(row.pin || "") !== String(payload.oldPin || "")) {
-    return badRequest("PIN lama salah.");
-  }
-
-  await env.DB.prepare(
-    "UPDATE classes SET pin = ? WHERE code = ?"
-  ).bind(
-    String(payload.newPin || ""),
-    classCode
-  ).run();
-
-  return json({ ok: true });
-}
+        const classCode = normalizeClassCode(payload.classCode);
+      
+        if (!isValidClassCode(classCode)) {
+          return badRequest("Kode kelas tidak valid.");
+        }
+      
+        const row = await env.DB.prepare(
+          "SELECT pin FROM classes WHERE code = ?"
+        ).bind(classCode).first();
+      
+        if (!row) {
+          return badRequest("Kelas tidak ditemukan.");
+        }
+      
+        if (String(row.pin || "") !== String(payload.oldPin || "")) {
+          return badRequest("PIN lama salah.");
+        }
+      
+        await env.DB.prepare(
+          "UPDATE classes SET pin = ? WHERE code = ?"
+        ).bind(
+          String(payload.newPin || ""),
+          classCode
+        ).run();
+      
+        return json({ ok: true });
+      }
       
       if (actionPost === "moveRoster" || actionPost === "copyRoster") {
         const fromClassCode = normalizeClassCode(payload.fromClassCode);
