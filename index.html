@@ -1477,7 +1477,12 @@
         <div class="holiday-title">
           📅 Daftar Hari Libur
         </div>
-      
+
+        <div class="field" style="margin-bottom:12px;">
+          <label for="holidayClassSelect">Kelas</label>
+          <select class="select" id="holidayClassSelect"></select>
+        </div>
+        
         <div class="field">
           <label for="holidayDate">Tanggal Libur</label>
           <input class="input" id="holidayDate" type="date">
@@ -1524,6 +1529,53 @@
 
       <div class="holiday-list" id="holidayList"></div>
     </div>
+  </div>
+</div>
+
+<div id="pjokPage" class="page">
+  <div class="wrap">
+
+    <div class="card">
+
+      <h2 style="margin-top:0">
+        Jadwal PJOK
+      </h2>
+
+      <div class="field">
+        <label>Pilih Kelas</label>
+
+        <select
+          id="pjokClassSelect"
+          class="select">
+        </select>
+      </div>
+
+      <div
+        id="pjokDays"
+        style="margin-top:20px;display:grid;gap:12px;">
+
+        <label><input type="checkbox" value="1"> Senin</label>
+        <label><input type="checkbox" value="2"> Selasa</label>
+        <label><input type="checkbox" value="3"> Rabu</label>
+        <label><input type="checkbox" value="4"> Kamis</label>
+        <label><input type="checkbox" value="5"> Jumat</label>
+
+      </div>
+
+      <div style="margin-top:24px">
+
+        <button
+          class="btn"
+          id="savePjokBtn">
+
+          Simpan Jadwal
+
+        </button>
+
+      </div>
+
+    </div>
+
   </div>
 </div>
   
@@ -1843,6 +1895,18 @@ function openHolidayPage() {
   loadHolidayList();
 }
 
+function openPjokPage() {
+  el("#appPage").classList.remove("active");
+  el("#holidayPage").classList.remove("active");
+
+  el("#pjokPage").classList.add("active");
+
+  document.body.classList.remove("app-ready");
+  document.title = "SD YPU - Jadwal PJOK";
+
+  loadPjokClasses();
+}
+  
 function closeHolidayPage() {
   el("#holidayPage").classList.remove("active");
   showAppPage();
