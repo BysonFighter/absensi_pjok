@@ -1489,7 +1489,7 @@
     </div>
 
     <div class="week" id="week"></div>
-    <div class="stats" id="stats"></div>
+    <div class="stats" id="wadah-hari"></div>
 
     <div class="action-row">
 
@@ -3685,27 +3685,79 @@ el("#logoutBtn").addEventListener("click", () => {
 
 init();
   async function ubahKelas(kelas) {
-    // 1. Ubah kelas aktif menggunakan fungsi bawaan aplikasi Anda
-    state.classCode = kelas;
-    await loadClassData(); 
-    
-    // 2. Panggil API jadwal PJOK yang baru kita buat di api.js
-    const resJadwal = await fetch(`/api?action=jadwalPjok&classCode=${kelas}`);
-    const jadwal = await resJadwal.json(); 
-    
-    // 3. Ubah tombol hari sesuai jadwal PJOK saja
-    const containerHari = document.getElementById('week');
-    containerHari.innerHTML = ''; 
-    
-    jadwal.forEach(item => {
-        // Class .day dan .n adalah bawaan asli desain CSS aplikasi Anda
-        containerHari.innerHTML += `
-            <div class="day">
-                <div class="n">${item.hari}</div>
-            </div>
-        `;
-    });
-}
+      // 1. Ubah kelas aktif menggunakan fungsi bawaan aplikasi Anda
+      state.classCode = kelas;
+      await loadClassData(); 
+      
+      // 2. Panggil API jadwal PJOK yang baru kita buat di api.js
+      const resJadwal = await fetch(`/api?action=jadwalPjok&classCode=${kelas}`);
+      const jadwal = await resJadwal.json(); 
+      
+      // 3. Ubah tombol hari sesuai jadwal PJOK saja
+      const containerHari = document.getElementById('week');
+      containerHari.innerHTML = ''; 
+      
+      jadwal.forEach(item => {
+          // Class .day dan .n adalah bawaan asli desain CSS aplikasi Anda
+          containerHari.innerHTML += `
+              <div class="day">
+                  <div class="n">${item.hari}</div>
+              </div>
+          `;
+      });
+  }
+
+  // Fungsi dipanggil saat combobox diubah
+  async function gantiKelasPjok(kelas) {
+      // 1. Ganti state kelas bawaan aplikasi dan muat ulang siswa
+      state.classCode = kelas;
+      await loadClassData(); 
+      
+      // 2. Saring tombol hari
+      await filterHariPjok(kelas);
+  }
+  
+  // Fungsi memunculkan hari sesuai jadwal DB saja
+  async function filterHariPjok(kelas) {
+      try {
+          const res = await fetch(`/api?action=jadwalPjok&classCode=${kelas}`);
+          const jadwal = await res.json();
+          
+          // Ubah jadwal jadi huruf kecil untuk pencocokan (misal: ["senin", "selasa"])
+          const hariPjok = jadwal.map(j => j.hari.toLowerCase());
+  
+          const wadahHari = document.getElementById("wadah-hari");
+          if (!wadahHari) return; // Mencegah error jika ID belum dipasang
+  
+          const tombolHari = wadahHari.children; 
+          
+          for (let i = 0; i < tombolHari.length; i++) {
+              const teksTombol = tombolHari[i].innerText.toLowerCase();
+              
+              // Cek apakah teks pada tombol hari ada di dalam jadwal_pjok database
+              const cocok = hariPjok.some(h => teksTombol.includes(h));
+              
+              if (cocok) {
+                  tombolHari[i].style.display = ""; // Munculkan
+              } else {
+                  tombolHari[i].style.display = "none"; // Sembunyikan
+              }
+          }
+      } catch (error) {
+          console.error("Gagal load jadwal PJOK:", error);
+      }
+  }
+  
+  // Memicu kelas 1A secara otomatis saat web baru pertama kali dibuka
+  window.addEventListener('DOMContentLoaded', () => {
+      const combo = document.getElementById('combo-kelas');
+      if (combo) {
+          combo.value = '1A';
+          // Tunggu sedikit agar script bawaan aplikasi selesai loading
+          setTimeout(() => gantiKelasPjok('1A'), 500); 
+      }
+  });
+  
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </body>
