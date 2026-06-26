@@ -1397,47 +1397,7 @@
 </head>
 <body class="preload">
 
-<div id="loginPage" class="page active">
-  <div class="login-shell">
-    <div class="card">
-      <div class="inner">
-        <div class="brand">
-          <img src="logo-sekolah.png" class="school-logo" alt="Logo">
-          <div>
-            <h1>SD YPU</h1>
-            <p class="sub">Sistem Presensi Siswa</p>
-          </div>
-        </div>
 
-        <div class="login-subtitle"></div>
-        
-        <form id="loginForm">
-          <div class="field">
-            <label for="loginPin">Kelas</label>
-            <select class="select" id="loginClassSelect"></select>
-          </div>
-
-          <div class="field">
-            <label for="loginPin">PIN</label>
-            <input class="input" id="loginPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Masukkan PIN">
-          </div>
-
-          <div class="row">
-            <label class="remember">
-              <input type="checkbox" id="rememberLogin">
-              Ingat saya
-            </label>
-            <a href="#" class="forgot" id="clearSaved">Lupa pin</a>
-          </div>
-
-          <button class="btn primary" type="submit" id="loginBtn">Masuk</button>
-        </form>
-
-        <div class="login-note">PIN default 123456.</div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div id="appPage" class="page">
 
@@ -1457,6 +1417,10 @@
     </div>
   </div>
 
+  <div class="card">
+      <label>Kelas</label>
+      <select id="classSelect"></select>
+  </div>
   
   <div class="card">
     <div class="toolbar">
@@ -2093,21 +2057,7 @@ function loginWithClass(classCode, remember) {
   applyAuthClass(classCode);
 }
 
-function logoutToLogin() {
-  clearAuth();
 
-  ["overlay", "pinOverlay", "rosterOverlay"].forEach(id => {
-    const node = el(`#${id}`);
-    if (node) node.style.display = "none";
-  });
-
-  state.classCode = DEFAULT_CLASS_CODE;
-  reportState.month = Number(localStorage.getItem("Presensi-report-month") || (new Date().getMonth() + 1));
-  reportState.year = Number(localStorage.getItem("Presensi-report-year") || new Date().getFullYear());
-
-  syncLoginSelectors();
-  showLoginPage();
-}
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -2303,45 +2253,76 @@ async function loadClasses() {
     state.classes = CLASS_ORDER.map(code => ({ code, name: `Kelas ${code}` }));
   }
 
-  if (!state.classes.some(c => c.code === state.classCode)) {
+  // Default selalu kelas 1A
+  if (!state.classes.some(c => c.code === "1A")) {
     state.classCode = state.classes[0]?.code || DEFAULT_CLASS_CODE;
-    localStorage.setItem("Presensi-class-code", state.classCode);
+  } else {
+    state.classCode = "1A";
   }
-  if (!state.classes.some(c => c.code === reportState.classCode)) {
-    reportState.classCode = state.classCode;
-    localStorage.setItem("Presensi-report-class", reportState.classCode);
-  }
+
+  // Tidak lagi memakai localStorage login
+  reportState.classCode = state.classCode;
+
   syncClassSelectors();
   syncReportSelectors();
-  syncLoginSelectors();
-  
-  el("#classSelect").value = state.classCode;
-  el("#rosterClassSelect").value = state.classCode;
-  
-  const loginClassSelect = el("#loginClassSelect");
-  if (loginClassSelect) {
-    loginClassSelect.value = state.classCode;
+
+  // syncLoginSelectors();   <-- HAPUS
+
+  const classSelect = el("#classSelect");
+  if (classSelect) {
+    classSelect.innerHTML = state.classes
+      .map(c => `<option value="${c.code}">${c.name}</option>`)
+      .join("");
+
+    classSelect.value = state.classCode;
+
+    classSelect.onchange = async () => {
+      state.classCode = classSelect.value;
+      await loadClassData();
+    };
   }
+
+  if (el("#rosterClassSelect")) {
+    el("#rosterClassSelect").value = state.classCode;
+  }
+
+  // Seluruh loginClassSelect dihapus
 }
 
 async function loadClassData() {
   try {
     const [students, attendance] = await Promise.all([
-      apiGet({ action: "students", classCode: state.classCode }),
-      apiGet({ action: "attendance", classCode: state.classCode, date: state.date }),
+      apiGet({
+        action: "students",
+        classCode: state.classCode
+      }),
+      apiGet({
+        action: "attendance",
+        classCode: state.classCode,
+        date: state.date
+      })
     ]);
+
     state.students = students.students || [];
+
     state.students.sort((a, b) =>
-      a.name.localeCompare(b.name, 'id')
+      a.name.localeCompare(b.name, "id")
     );
+
     state.attendance = {};
+
     (attendance.records || []).forEach(row => {
-      state.attendance[String(row.studentId)] = { status: row.status, note: row.note || "" };
+      state.attendance[String(row.studentId)] = {
+        status: row.status,
+        note: row.note || ""
+      };
     });
+
   } catch (error) {
     state.students = [];
     state.attendance = {};
   }
+
   state.dirtyAttendance = false;
 
   try {
@@ -2349,7 +2330,7 @@ async function loadClassData() {
   } catch (error) {
     state.holidayDates = new Set();
   }
-  
+
   render();
 }
 
@@ -2388,19 +2369,23 @@ function syncWeekNavButtons() {
 
 function renderTop() {
   const dateObj = parseLocalDate(state.date);
-  const isHolidaySelected = state.holidayDates?.has(state.date);
 
-  el("#dateText").innerHTML = `<span>📅</span><span>${prettyDate(dateObj)}</span>`;
+  el("#dateText").innerHTML =
+    `<span>📅</span><span>${prettyDate(dateObj)}</span>`;
 
-  const monday = startWeek(dateObj);
+  // Ambil jadwal PJOK kelas yang sedang dipilih
+  const schedule = state.schedule || [];
 
-  el("#week").innerHTML = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(d.getDate() + i);
-    const iso = todayIso(d);
+  el("#week").innerHTML = schedule.map(iso => {
+    const d = parseLocalDate(iso);
     const active = iso === state.date ? "active" : "";
-    const dayClass = state.holidayDates?.has(iso) ? "holiday-day" : "";
-    return `<button class="day ${active} ${dayClass}" data-date="${iso}"><div>${prettyShort(d).split(",")[0]}</div><div class="n">${d.getDate()}</div></button>`;
+
+    return `
+      <button class="day ${active}" data-date="${iso}">
+        <div>${prettyShort(d).split(",")[0]}</div>
+        <div class="n">${d.getDate()}</div>
+      </button>
+    `;
   }).join("");
 
   el("#week").querySelectorAll("[data-date]").forEach(btn => {
@@ -2411,6 +2396,7 @@ function renderTop() {
   });
 
   const counts = currentAttendanceCounts();
+
   el("#stats").innerHTML = STATUS.map(s => `
     <div class="stat s-${s.c}">
       <div class="num">${counts[s.k] || 0}</div>
@@ -3492,20 +3478,21 @@ function showError(error) {
 async function init() {
   try {
     state.date = normalizeToSchoolDay(state.date);
+
+    // Load daftar kelas
     await loadClasses();
 
-    const savedAuthClass = getAuthClassCode();
-    if (savedAuthClass && state.classes.some(item => item.code === savedAuthClass)) {
-      applyAuthClass(savedAuthClass);
-      await loadClassData();
-      await loadRosterEditor();
-      showAppPage();
-    } else {
-      showLoginPage();
-    }
+    // Default kelas 1A
+    state.currentClass = "1A";
+
+    // Load data kelas 1A
+    await loadClassData();
+
+    // Langsung tampilkan halaman absen
+    showAppPage();
+
   } catch (error) {
     showError(error);
-    showLoginPage();
   } finally {
     document.body.classList.remove("preload");
     document.body.classList.add("preload-ready");
@@ -3616,33 +3603,7 @@ el("#addStudentBtn").addEventListener("click", () => {
 el("#saveRosterBtn").addEventListener("click", () => saveRoster().catch(showError));
 el("#copyRosterBtn").addEventListener("click", () => moveRoster().catch(showError));
 
-el("#loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const classCode = el("#loginClassSelect").value;
-  const pin = el("#loginPin").value.trim();
-  const remember = el("#rememberLogin").checked;
 
-  if (!classCode) {
-    setToast("Pilih kelas terlebih dahulu");
-    return;
-  }
-  if (!pin) {
-    setToast("Masukkan PIN");
-    return;
-  }
-
-  const expectedPin = getLoginPinForClass(classCode);
-  if (pin !== expectedPin) {
-    setToast("PIN tidak sesuai");
-    return;
-  }
-
-  loginWithClass(classCode, remember);
-  await loadClassData();
-  await loadRosterEditor();
-  showAppPage();
-  el("#loginPin").value = "";
-});
 
 el("#clearSaved").addEventListener("click", (e) => {
   e.preventDefault();
@@ -3650,13 +3611,6 @@ el("#clearSaved").addEventListener("click", (e) => {
   setToast("Hubungi Operator Sekolah!");
 });
 
-el("#logoutBtn").addEventListener("click", () => {
-  if (state.dirtyAttendance || state.dirtyRoster) {
-    const ok = confirm("Ada perubahan yang belum disimpan. Tetap logout?");
-    if (!ok) return;
-  }
-  logoutToLogin();
-});
 
 init();
 </script>
