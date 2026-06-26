@@ -1457,6 +1457,24 @@
     </div>
   </div>
 
+  <div style="text-align: center; margin-bottom: 20px;">
+      <label for="combo-kelas" style="font-weight: bold; margin-right: 10px;">Pilih Kelas:</label>
+      <select id="combo-kelas" onchange="ubahKelas(this.value)" style="padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+          <option value="1A" selected>Kelas 1A</option>
+          <option value="1B">Kelas 1B</option>
+          <option value="2A">Kelas 2A</option>
+          <option value="2A">Kelas 2B</option>
+          <option value="2A">Kelas 3A</option>
+          <option value="2A">Kelas 3B</option>
+          <option value="2A">Kelas 4A</option>
+          <option value="2A">Kelas 4B</option>
+          <option value="2A">Kelas 5A</option>
+          <option value="2A">Kelas 5B</option>
+          <option value="2A">Kelas 6A</option>
+          <option value="2A">Kelas 6B</option>
+          <!-- Tambahkan kelas lain di sini -->
+      </select>
+  </div>
   
   <div class="card">
     <div class="toolbar">
@@ -1464,7 +1482,7 @@
       <div class="date-row">
         <button class="iconbtn" id="prevDay">←</button>
       
-        <div class="datebox" id="dateText"></div>
+        <div class="datebox" id="container-hari"></div>
       
         <button class="iconbtn" id="nextDay">→</button>
       </div>
@@ -3511,6 +3529,37 @@ async function init() {
     document.body.classList.add("preload-ready");
   }
 }
+
+async function ubahKelas(kelas) {
+    // 1. Ambil & filter data siswa dari API sesuai kelas
+    const resSiswa = await fetch(`/api/siswa?kelas=${kelas}`);
+    const dataSiswa = await resSiswa.json();
+    
+    // GANTI "renderTabelSiswa" dengan nama fungsi asli di kodingan Anda yang memunculkan list siswa!
+    renderTabelSiswa(dataSiswa); 
+
+    // 2. Ambil jadwal PJOK & ubah tombol hari
+    const resJadwal = await fetch(`/api/jadwal?kelas=${kelas}`);
+    const jadwal = await resJadwal.json(); 
+    
+    const containerHari = document.getElementById('container-hari');
+    containerHari.innerHTML = ''; // Hapus hari bawaan (Senin-Jumat)
+    
+    // Cetak tombol hanya untuk hari jadwal PJOK
+    jadwal.forEach(item => {
+        // Sesuaikan nama class ini agar desainnya persis dengan tombol yang lama
+        containerHari.innerHTML += `
+            <div class="tombol-hari-class-bawaan-anda">
+                <span style="font-weight:bold;">${item.hari}</span>
+            </div>
+        `;
+    });
+}
+
+// Set trigger agar otomatis memuat kelas 1A saat web pertama kali dibuka
+window.addEventListener('DOMContentLoaded', () => {
+    ubahKelas('1A');
+});
 
 el("#classSelect").addEventListener("change", async () => {
   await changeClass(el("#classSelect").value);
