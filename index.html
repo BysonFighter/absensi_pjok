@@ -3530,31 +3530,7 @@ async function init() {
   }
 }
 
-async function ubahKelas(kelas) {
-    // 1. Ambil & filter data siswa dari API sesuai kelas
-    const resSiswa = await fetch(`/api/siswa?kelas=${kelas}`);
-    const dataSiswa = await resSiswa.json();
-    
-    // GANTI "renderTabelSiswa" dengan nama fungsi asli di kodingan Anda yang memunculkan list siswa!
-    renderTabelSiswa(dataSiswa); 
 
-    // 2. Ambil jadwal PJOK & ubah tombol hari
-    const resJadwal = await fetch(`/api/jadwal?kelas=${kelas}`);
-    const jadwal = await resJadwal.json(); 
-    
-    const containerHari = document.getElementById('container-hari');
-    containerHari.innerHTML = ''; // Hapus hari bawaan (Senin-Jumat)
-    
-    // Cetak tombol hanya untuk hari jadwal PJOK
-    jadwal.forEach(item => {
-        // Sesuaikan nama class ini agar desainnya persis dengan tombol yang lama
-        containerHari.innerHTML += `
-            <div class="tombol-hari-class-bawaan-anda">
-                <span style="font-weight:bold;">${item.hari}</span>
-            </div>
-        `;
-    });
-}
 
 // Set trigger agar otomatis memuat kelas 1A saat web pertama kali dibuka
 window.addEventListener('DOMContentLoaded', () => {
@@ -3708,6 +3684,28 @@ el("#logoutBtn").addEventListener("click", () => {
 });
 
 init();
+  async function ubahKelas(kelas) {
+    // 1. Ubah kelas aktif menggunakan fungsi bawaan aplikasi Anda
+    state.classCode = kelas;
+    await loadClassData(); 
+    
+    // 2. Panggil API jadwal PJOK yang baru kita buat di api.js
+    const resJadwal = await fetch(`/api?action=jadwalPjok&classCode=${kelas}`);
+    const jadwal = await resJadwal.json(); 
+    
+    // 3. Ubah tombol hari sesuai jadwal PJOK saja
+    const containerHari = document.getElementById('week');
+    containerHari.innerHTML = ''; 
+    
+    jadwal.forEach(item => {
+        // Class .day dan .n adalah bawaan asli desain CSS aplikasi Anda
+        containerHari.innerHTML += `
+            <div class="day">
+                <div class="n">${item.hari}</div>
+            </div>
+        `;
+    });
+}
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </body>
