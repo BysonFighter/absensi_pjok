@@ -428,12 +428,6 @@ export async function onRequest(context) {
     const method = request.method.toUpperCase();
 
     if (method === "GET") {
-      if (action === "jadwalPjok") {
-        const classCode = normalizeClassCode(url.searchParams.get("classCode") || "1A");
-        // Ambil data hari jadwal PJOK dari D1 Database
-        const { results } = await env.DB.prepare('SELECT hari FROM jadwal_pjok WHERE kelas = ?').bind(classCode).all();
-        return json(results || []);
-      }
       if (action === "classes") {
         return json({ ok: true, classes: await getClasses(env) });
       }
